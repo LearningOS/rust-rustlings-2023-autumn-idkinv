@@ -2,8 +2,12 @@
 //
 // Execute `rustlings hint threads3` or use the `hint` watch subcommand for a
 // hint.
+// ###
+// In this code, two separate threads are spawned to send values from two halves of a queue over a channel. The main thread receives these values and keeps count of the total number received. The assertion at the end checks that all the values were received.
 
-// I AM NOT DONE
+// However, the code will not work as expected because the tx (transmitter) is moved to the spawned threads and gets dropped when both threads finish executing, causing the rx (receiver) to close before the main thread has a chance to receive all the values.
+
+// To fix this issue, you need to clone the transmitter tx using the clone method provided by mpsc::Sender, so that each thread gets its own transmitter
 
 use std::sync::mpsc;
 use std::sync::Arc;
@@ -30,11 +34,12 @@ fn send_tx(q: Queue, tx: mpsc::Sender<u32>) -> () {
     let qc = Arc::new(q);
     let qc1 = Arc::clone(&qc);
     let qc2 = Arc::clone(&qc);
+    let (tx1, tx2) = (tx.clone(), tx.clone());  // Clone the transmitter
 
     thread::spawn(move || {
         for val in &qc1.first_half {
             println!("sending {:?}", val);
-            tx.send(*val).unwrap();
+            tx1.send(*val).unwrap();
             thread::sleep(Duration::from_secs(1));
         }
     });
@@ -42,7 +47,7 @@ fn send_tx(q: Queue, tx: mpsc::Sender<u32>) -> () {
     thread::spawn(move || {
         for val in &qc2.second_half {
             println!("sending {:?}", val);
-            tx.send(*val).unwrap();
+            tx2.send(*val).unwrap();
             thread::sleep(Duration::from_secs(1));
         }
     });
